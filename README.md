@@ -1,5 +1,5 @@
 # Advanced-Lucene-Search
-Intelligent high performance search engine for item names with Apache Lucene .NET
+Intelligent, high-performance, full-featured text search engine for item names with Apache Lucene .NET
 
 Includes a fuzzy search function that allows the percentage of invalid characters.
 
