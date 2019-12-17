@@ -34,7 +34,7 @@ namespace AdvancedLuceneSearch.Lucene
     {
         // Note there are many different types of Analyzer that may be used with Lucene, the exact one you use
         // will depend on your requirements
-       
+
         //private DirectoryFS luceneIndexDirectory;       
         private string _indexPath = AppDomain.CurrentDomain.BaseDirectory + @"\Lucene\Index";
 
@@ -43,12 +43,12 @@ namespace AdvancedLuceneSearch.Lucene
 
         private static bool _condShouldResearch = true; // стоит ли делать пере-поиск с учетом знака препинания
 
-        private static readonly HashSet<string> ListStopWords = new HashSet<string>( new[] {
+        private static readonly HashSet<string> ListStopWords = new HashSet<string>(new[] {
             "в", "без", "до", "из", "к", "на", "не", "по", "о", "от", "перед", "при", "через", "с", "у",
             "за", "над", "об", "под", "про", "для", "%", "№", "шт", "упак", "арт", "штука", "упаковок", "штук", "рул", "кг", "см", "м2", "т",
-            "литров", "диаметр", "зао", "ооо", "оао", "упаковка", "рулон", "литр"} );
+            "литров", "диаметр", "зао", "ооо", "оао", "упаковка", "рулон", "литр"});
 
-        private static readonly HashSet<string> ListUnitsExclude = new HashSet<string>(new[] { "производитель", "страна", "китай", "россия", "казахстан", "неизвестен"});
+        private static readonly HashSet<string> ListUnitsExclude = new HashSet<string>(new[] { "производитель", "страна", "китай", "россия", "казахстан", "неизвестен" });
 
         private static readonly HashSet<string> ListAdjectives = new HashSet<string>(new[] {
             "ее","ые","ое","ей","ий","ый","ой","ем","им","ым","ом","их","ых","ую","юю","ая","яя","ою","ею", "ими", "ыми", "его", "ого", "ему", "ому" });
@@ -73,7 +73,7 @@ namespace AdvancedLuceneSearch.Lucene
 
         private string _explanationResult = "";
         private string _similarityResult = "";
-        
+
         public LuceneService()
         {
             EmbeddedAssembly.Load(resource1, "Lucene.Net.dll");
@@ -91,40 +91,40 @@ namespace AdvancedLuceneSearch.Lucene
 
         private void InitialiseLucene()
         {
-           if(System.IO.Directory.Exists(_indexPath)) System.IO.Directory.Delete(_indexPath, true);
+            if (System.IO.Directory.Exists(_indexPath)) System.IO.Directory.Delete(_indexPath, true);
 
-           // luceneIndexDirectory = FSDirectory.Open(indexPath); 
+            // luceneIndexDirectory = FSDirectory.Open(indexPath); 
             //writer = new IndexWriter(_directory, analyzer, true, IndexWriter.MaxFieldLength.UNLIMITED); 
-          
+
         }
 
         ~LuceneService()
         {
-            DirectoryFs.Dispose();           
+            DirectoryFs.Dispose();
         }
 
         public void BuildIndex(IEnumerable<SampleDataFileRow> dataToIndex, bool newIndex = true)
         {
             var analyzer = new StandardAnalyzer(Version.LUCENE_30, ListStopWords);
-                using (var writer = new IndexWriter(DirectoryFs, analyzer, newIndex, IndexWriter.MaxFieldLength.UNLIMITED))
+            using (var writer = new IndexWriter(DirectoryFs, analyzer, newIndex, IndexWriter.MaxFieldLength.UNLIMITED))
+            {
+                foreach (var sampleDataFileRow in dataToIndex)
                 {
-                    foreach (var sampleDataFileRow in dataToIndex)
-                    {
-                        Document doc = new Document();
-                        doc.Add(new Field("LineNumber", sampleDataFileRow.LineNumber.ToString(), Field.Store.YES, Field.Index.NOT_ANALYZED, Field.TermVector.NO));
-                        doc.Add(new Field("LineText", sampleDataFileRow.LineText, Field.Store.YES, Field.Index.ANALYZED));
-                        writer.AddDocument(doc);
-                    }
-                    analyzer.Close();
-                    writer.Optimize();
-                    //writer.Flush(true, false, true);
-                    writer.Dispose();
+                    Document doc = new Document();
+                    doc.Add(new Field("LineNumber", sampleDataFileRow.LineNumber.ToString(), Field.Store.YES, Field.Index.NOT_ANALYZED, Field.TermVector.NO));
+                    doc.Add(new Field("LineText", sampleDataFileRow.LineText, Field.Store.YES, Field.Index.ANALYZED));
+                    writer.AddDocument(doc);
                 }
+                analyzer.Close();
+                writer.Optimize();
+                //writer.Flush(true, false, true);
+                writer.Dispose();
+            }
         }
 
         public void BuildRamIndex(IEnumerable<SampleDataFileRow> dataToIndex)
         {
-            
+
             var analyzer = new StandardAnalyzer(Version.LUCENE_30, ListStopWords);
             using (var writer = new IndexWriter(_RAMdirectory, analyzer, true, IndexWriter.MaxFieldLength.UNLIMITED))
             {
@@ -155,11 +155,11 @@ namespace AdvancedLuceneSearch.Lucene
 
         private static List<string> RemovePartFromStart(List<string> listInput, string frontToRemove)
         {
-            
+
             for (var i = 0; i < listInput.Count(); i++)
                 if (listInput[i].StartsWith(frontToRemove))
                     listInput[i] = listInput[i].Remove(0, 1);
-            
+
             return listInput;
         }
 
@@ -174,7 +174,7 @@ namespace AdvancedLuceneSearch.Lucene
             }
 
             return listInput;
-                
+
         }
 
         private static List<string> RemoveDashes(List<string> listInput)
@@ -186,7 +186,7 @@ namespace AdvancedLuceneSearch.Lucene
                 if (indexDash > 4 & listInput[i].Length > 9 & indexDash < listInput[i].Length - 4)
                     if (char.IsLetter(listInput[i][indexDash - 2]) & char.IsLetter(listInput[i][indexDash + 2]))
                     {
-                        listInput[i] = listInput[i].Replace('-', ' ');                       
+                        listInput[i] = listInput[i].Replace('-', ' ');
                     }
             }
 
@@ -198,34 +198,33 @@ namespace AdvancedLuceneSearch.Lucene
         {
             if (string.IsNullOrEmpty(searchTerm)) return new List<SampleDataFileRow>();
 
-            int countWordsLimitSecondStep = 3; // количество слов при первичном поиске (альтернативный поиск)
+            const int countWordsLimitSecondStep = 3; // количество слов при первичном поиске (альтернативный поиск)
 
             // полный список отформатированных слов из запроса
             List<string> terms;
 
             // список слов до первого знака препинания
             // для первого цикла поиска
-            List<string> termsInitial = new List<string>();
+            var termsInitial = new List<string>();
 
             // остальная часть слов
-            List<string> termsLast;
 
             // ищем поисковую фразу до первого знака препинания
-            int indexStopPunctMark = 0;
-            char[] arrayCharsStop = new char[] { ',', '.', ':', '(' };
+            int indexStopPunctuationMark = 0;
+            char[] arrayCharsStop = { ',', '.', ':', '(' };
             if (searchTerm.Length > 6)
-                indexStopPunctMark = searchTerm.IndexOfAny(arrayCharsStop, 0, searchTerm.Length - 3);
+                indexStopPunctuationMark = searchTerm.IndexOfAny(arrayCharsStop, 0, searchTerm.Length - 3);
             bool condHasInitialTerms = false;
 
-            if (indexStopPunctMark > _lengthStopPunctuationMark)
+            if (indexStopPunctuationMark > _lengthStopPunctuationMark)
             {
                 condHasInitialTerms = true;
-                var termInitial = searchTerm.Substring(0, indexStopPunctMark);
+                var termInitial = searchTerm.Substring(0, indexStopPunctuationMark);
                 termsInitial = GetFormattedTerms(termInitial, 1);
 
                 // вторая часть, все что за знаком препинания
-                var termLast = searchTerm.Substring(indexStopPunctMark);
-                termsLast = GetFormattedTerms(termLast);
+                var termLast = searchTerm.Substring(indexStopPunctuationMark);
+                var termsLast = GetFormattedTerms(termLast);
 
                 // соединяем полученные подстроки вместе           
                 terms = termsInitial.Concat(termsLast).ToList();
@@ -239,12 +238,12 @@ namespace AdvancedLuceneSearch.Lucene
             HashSet<string> finalTerm = new HashSet<string>();
             IEnumerable<SampleDataFileRow> listTempSearchResults;
 
-            bool firstMain = false;
+            var firstMain = false;
             string nameStringForSearch;
 
             // выбираем первое слово для поиска           
-            string firstTerm = terms.First();
-            bool condFound = false;
+            var firstTerm = terms.First();
+            var condFound = false;
 
             // если первое слово существительное с заглавной буквой или цифровым кодом
             if (Char.IsUpper(firstTerm, 0) & !Char.IsNumber(firstTerm, 0) & Char.IsLower(firstTerm, firstTerm.Length - 1) &
@@ -348,8 +347,9 @@ namespace AdvancedLuceneSearch.Lucene
 
                         // если есть результаты и поиск был до ключевого знака препинания
                         // исключаем варианты, где нет ни одного найденного слова до ключевого знака препинания
-                        if (listTempSearchResults.Any())
-                            listTempSearchResults = ExcludeBadResults(listTempSearchResults, nameStringForSearch, arrayCharsStop, precision);
+                        var listResultsToCheck = listTempSearchResults as SampleDataFileRow[] ?? listTempSearchResults.ToArray();
+                        if (listResultsToCheck.Any())
+                            sampleDataFileRows = (SampleDataFileRow[])ExcludeBadResults(listResultsToCheck, nameStringForSearch, arrayCharsStop, precision);
 
                     }
 
@@ -390,7 +390,6 @@ namespace AdvancedLuceneSearch.Lucene
 
                         BuildRamIndex(sampleDataFileRows);
 
-                        listTempSearchResults = null;
                         return _search(nameStringForSearch, precision, _RAMdirectory);
                     }
                     else
@@ -476,20 +475,21 @@ namespace AdvancedLuceneSearch.Lucene
 
             // если есть результаты и поиск был до ключевого знака препинания
             // исключаем варианты, где нет ни одного найденного слова до ключевого знака препинания
-            if (listTempSearchResults.Any())
+            var searchMultipleSteps = listTempSearchResults as SampleDataFileRow[] ?? listTempSearchResults.ToArray();
+            if (searchMultipleSteps.Any())
             {
-                BuildRamIndex(new List<SampleDataFileRow> { listTempSearchResults.First() });
-                listTempSearchResults = ExcludeBadResults(listTempSearchResults, nameStringForSearch, arrayCharsStop, precision);
+                BuildRamIndex(new List<SampleDataFileRow> { searchMultipleSteps.First() });
+                searchMultipleSteps = (SampleDataFileRow[])ExcludeBadResults(searchMultipleSteps, nameStringForSearch, arrayCharsStop, precision);
             }
 
             // убираем скобки в начале и конце слов, иначе поиск будет некорректным
             terms = RemovePartFromEnd(terms, ")");
             terms = RemovePartFromStart(terms, "(");
 
-            // ДОРАБОТАТЬ отфильтровать найденные рзультаты по соотношению найденных слов в фразе
+            // ДОРАБОТАТЬ отфильтровать найденные результаты по соотношению найденных слов в фразе
 
             // теперь среди найденного ищем по всем словам            
-            if (listTempSearchResults.Count() > 1 & terms.Count() > finalTerm.Count)
+            if (searchMultipleSteps.Count() > 1 & terms.Count() > finalTerm.Count)
             {
                 finalTerm.Clear();
                 // расставляем приоритеты для слов
@@ -514,14 +514,12 @@ namespace AdvancedLuceneSearch.Lucene
 
                 nameStringForSearch = string.Join(" ", finalTerm.ToArray());
 
-                BuildRamIndex(listTempSearchResults);
-
-                listTempSearchResults = null;
+                BuildRamIndex(searchMultipleSteps);
 
                 return _search(nameStringForSearch, precision, _RAMdirectory);
             }
             else
-                return listTempSearchResults;
+                return searchMultipleSteps;
 
         }
 
@@ -536,13 +534,13 @@ namespace AdvancedLuceneSearch.Lucene
 
             HashSet<string> finalTerm = new HashSet<string>();
 
-            int countAdjectiveLimit = 0;
+            var countAdjectiveLimit = 0;
 
-            int counotLimitWord = 4;
-           
+            const int countLimitWord = 4;
+
             foreach (var term in terms)
             {
-                if (finalTerm.Count > counotLimitWord)
+                if (finalTerm.Count > countLimitWord)
                     break;
 
                 if (ListAdjectives.Any(x => term.EndsWith(x)) & countAdjectiveLimit < 3)
@@ -565,7 +563,7 @@ namespace AdvancedLuceneSearch.Lucene
 
         private FuzzyQuery FuzzyQueryParseQuery(string searchQuery)
         {
-            var query = new FuzzyQuery(new Term("LineText", searchQuery), 0.7f);            
+            var query = new FuzzyQuery(new Term("LineText", searchQuery), 0.7f);
             return query;
         }
 
@@ -586,7 +584,7 @@ namespace AdvancedLuceneSearch.Lucene
 
         public IEnumerable<SampleDataFileRow> _search(string searchTerm, int precision, global::Lucene.Net.Store.Directory indexDirectory)
         {
-            Debug.Assert(!String.IsNullOrEmpty(searchTerm));                             
+            Debug.Assert(!String.IsNullOrEmpty(searchTerm));
 
             List<SampleDataFileRow> results = new List<SampleDataFileRow>();
 
@@ -594,11 +592,11 @@ namespace AdvancedLuceneSearch.Lucene
                 return results;
 
             using (IndexSearcher searcher = new IndexSearcher(indexDirectory))
-            {  
+            {
                 var analyzer = new StandardAnalyzer(Version.LUCENE_30, ListStopWords);
-              
+
                 QueryParser parser = new QueryParser(Version.LUCENE_30, "LineText", analyzer);
-                
+
                 if (precision > 0 && precision < 100)
                     parser.FuzzyMinSim = ((float)precision) * 0.01f;
                 else if (precision == 100)
@@ -607,9 +605,9 @@ namespace AdvancedLuceneSearch.Lucene
                     parser.FuzzyMinSim = 0.8f;
 
                 //parser.PhraseSlop = 5;
-                
+
                 var query = ParseQuery(searchTerm, parser);
-                
+
                 //var query = fparseQuery(searchTerm);
                 ScoreDoc[] hitsFound = searcher.Search(query, null, CountSearchResults).ScoreDocs;
 
@@ -620,13 +618,13 @@ namespace AdvancedLuceneSearch.Lucene
                     float score = t.Score;
                     Explanation explanation = searcher.Explain(query, t.Doc);
                     Document doc = searcher.Doc(docId);
-                    
+
                     sampleDataFileRow.LineNumber = int.Parse(doc.Get("LineNumber"));
                     sampleDataFileRow.LineText = doc.Get("LineText");
                     sampleDataFileRow.Score = score;
 
                     _explanationResult = explanation.ToString();
-                    
+
 
                     results.Add(sampleDataFileRow);
                 }
@@ -638,7 +636,7 @@ namespace AdvancedLuceneSearch.Lucene
         }
 
         public int GetIndexDocCount()
-        {        
+        {
             var reader = IndexReader.Open(DirectoryFs, true);
             int docCount = reader.NumDocs();
             reader.Dispose();
@@ -686,7 +684,7 @@ namespace AdvancedLuceneSearch.Lucene
             // 1. Specify the analyzer for tokenizing text.  
             //    The same analyzer should be used as was used for indexing  
             StandardAnalyzer analyzer = new StandardAnalyzer(Version.LUCENE_30, ListStopWords);
-           
+
 
             // 2. query  
             Query q = new QueryParser(Version.LUCENE_30, "LineText", analyzer).Parse(querystr);
@@ -777,28 +775,35 @@ namespace AdvancedLuceneSearch.Lucene
 
         // исключает из входящего списка
         // некорректные результаты 
-        private IEnumerable<SampleDataFileRow> ExcludeBadResults(IEnumerable<SampleDataFileRow> listResultsToCheck, string termSearch, char[] stopPunctuationMark, int searchPrecision) 
-        {            
+        private IEnumerable<SampleDataFileRow> ExcludeBadResults(SampleDataFileRow[] listResultsToCheck, string termSearch, char[] stopPunctuationMark, int searchPrecision)
+        {
             var listFinal = new List<SampleDataFileRow>();
 
-            for (var i = 0; i < listResultsToCheck.Count(); i++) // делаем проход по всем результатам поиска
+            // делаем проход по всем результатам поиска
+            // и исключаем варианты, где найденные слова из запроса стоят после знака препинания
+            for (var i = 0; i < listResultsToCheck.Count(); i++)
             {
                 // создаем индекс для поиска с урезанным вариантом
-
-                List<SampleDataFileRow> listCutted = new List<SampleDataFileRow>();
-                SampleDataFileRow dataRow = new SampleDataFileRow();
-                dataRow.Score = listResultsToCheck.ElementAt(i).Score;
-                dataRow.LineText = listResultsToCheck.ElementAt(i).LineText;
-                dataRow.LineNumber = listResultsToCheck.ElementAt(i).LineNumber;
-                listCutted.Add(dataRow);
-                listCutted[0] = CutDataIndex(listCutted[0], stopPunctuationMark);
+                var listClipped = new List<SampleDataFileRow>();
+                var dataRow = new SampleDataFileRow
+                {
+                    Score = listResultsToCheck.ElementAt(i).Score,
+                    LineText = listResultsToCheck.ElementAt(i).LineText,
+                    LineNumber = listResultsToCheck.ElementAt(i).LineNumber
+                };
+                listClipped.Add(dataRow);
+                // обрезать строку при необходимости
+                listClipped[0] = CutDataIndex(listClipped[0], stopPunctuationMark);
 
                 if (_condShouldResearch) // если было обрезание
                 {
-                    RebuildRamIndex(listCutted);
-
+                    // выполнить перестройку индекса
+                    // для обрезанного значения
+                    RebuildRamIndex(listClipped);
+                    // и выполнить поиск заново
                     var listTempSearchResults = _search(termSearch, searchPrecision, _RAMdirectory);
 
+                    // если значение было найдено, добавляем в финальный результат
                     if (!listTempSearchResults.Any()) continue;
                     listFinal.Add(listResultsToCheck.ElementAt(i));
                 }
@@ -832,7 +837,7 @@ namespace AdvancedLuceneSearch.Lucene
         }
 
         public void RebuildRamIndex(IEnumerable<SampleDataFileRow> dataToIndex)
-        {            
+        {
             var analyzer = new StandardAnalyzer(Version.LUCENE_30, ListStopWords);
             using (var writer = new IndexWriter(_RAMdirectory, analyzer, false, IndexWriter.MaxFieldLength.UNLIMITED))
             {
@@ -854,4 +859,4 @@ namespace AdvancedLuceneSearch.Lucene
     }
 }
 
-    
+
